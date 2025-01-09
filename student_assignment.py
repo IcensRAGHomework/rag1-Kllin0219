@@ -26,7 +26,6 @@ def generate_hw01(question):
     )
 
     response = llm.invoke([message])
-
     parser = JsonOutputParser()
     try:
         parsed_result = parser.parse(response.content)
@@ -34,9 +33,10 @@ def generate_hw01(question):
         return {"json parse error"}
 
     if "Result" in parsed_result and isinstance(parsed_result["Result"], list):
-        return parsed_result
+        return json.dumps(parsed_result, ensure_ascii=False)
     else:
         return {"json not contain Result"}
+
 
 def generate_hw02(question):
     pass
@@ -67,3 +67,7 @@ def demo(question):
     response = llm.invoke([message])
 
     return response
+
+if __name__ == '__main__':
+    result = generate_hw01("2024年台灣10月紀念日有哪些?")
+    print(result)
