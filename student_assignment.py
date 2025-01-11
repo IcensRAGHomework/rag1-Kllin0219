@@ -52,7 +52,6 @@ def fetch_holidays_from_api(conutry, year, month, language) -> str:
         language: Returns the name of the holiday in the official language of the country if available. This defaults to english. This must be passed as the 2-letter ISO639 Language Code. An example is to return all the names of france holidays in french you can just add the parameter like this: fr
     """
     try:
-        print(f"conutry: {conutry}, year: {year}, month: {month}, language: {language}")
         params = {
             "api_key": "wjr6QZn9jxNz3GlIdgYqM5yVzFawlIkn",
             "country": conutry,
@@ -66,13 +65,13 @@ def fetch_holidays_from_api(conutry, year, month, language) -> str:
             data = response.json()
 
             holidays = data.get("response", {}).get("holidays", [])
-            print(holidays)
-            return {
+            result = {
                 "Result": [
                     {"date": holiday["date"]["iso"], "name": holiday["name"]}
                     for holiday in holidays
                 ]
             }
+            return json.dumps(result)
         else:
             return {"error": f"API request state: {response.status_code}"}
 
