@@ -211,6 +211,7 @@ def generate_hw04(question):
     response = llm.invoke(messages)
     parser = JsonOutputParser()
     parsed_result = parser.parse(response.content)
+    parsed_result["Result"]["score"] = int(parsed_result["Result"]["score"])
     return json.dumps(parsed_result, ensure_ascii=False)
 
 
