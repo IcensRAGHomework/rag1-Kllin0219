@@ -86,6 +86,15 @@ def fetch_holidays_from_api(conutry, year, month, language) -> str:
         return {"error": str(e)}
 
 
+def fetch_holidays_if_valid(ai_msg):
+    if hasattr(ai_msg, "tool_calls") and ai_msg.tool_calls:
+        for tool_call in ai_msg.tool_calls:
+            if (tool_call["name"].lower() == "fetch_holidays_from_api"):
+                return fetch_holidays_from_api.invoke(tool_call["args"])
+
+    return ai_msg
+
+
 def generate_hw02(question):
     tools = [fetch_holidays_from_api]
     llm_with_tools = AzureChatOpenAI(
@@ -99,18 +108,13 @@ def generate_hw02(question):
 
     messages = [HumanMessage(question)]
 
-    ai_msg = llm_with_tools.invoke(messages)
+    chain = llm_with_tools | fetch_holidays_if_valid
+    result = chain.invoke(messages)
 
-    for tool_call in ai_msg.tool_calls:
-        selected_tool = {"fetch_holidays_from_api": fetch_holidays_from_api}[
-            tool_call["name"].lower()]
-        tool_output = selected_tool.invoke(tool_call["args"])
-
-    return tool_output
+    return result
 
 
 def generate_hw03(question2, question3):
-    print("generate_hw03")
     store = {}
 
     def get_session_history(session_id: str) -> BaseChatMessageHistory:
@@ -126,16 +130,16 @@ def generate_hw03(question2, question3):
         openai_api_version=gpt_config['api_version'],
         azure_endpoint=gpt_config['api_base'],
         temperature=gpt_config['temperature']
-    )
+    ).bind_tools(tools)
+    
     prompt = ChatPromptTemplate.from_messages(
-    [
-        MessagesPlaceholder(variable_name='history'),
-        ('human', '{question}'),
-    ]
-)
-    
-    
-    chain = (prompt | llm_with_tools)
+        [
+            MessagesPlaceholder(variable_name='history'),
+            ('human', '{question}'),
+        ]
+    )
+
+    chain = (prompt | llm_with_tools | fetch_holidays_if_valid)
 
     agent_with_chat_history = RunnableWithMessageHistory(
         chain,
@@ -148,13 +152,13 @@ def generate_hw03(question2, question3):
         {"question": HumanMessage(question2)},
         config={"configurable": {"session_id": "abc123"}},
     )
-    
+
     response2 = agent_with_chat_history.invoke(
-        {"question": HumanMessage(question3)},
+        {"question": HumanMessage(f'"請回答以下問題並以 JSON 格式輸出，格式如下: {{\"Result\": {{\"add\": \"這是一個布林值，表示是否需要將節日新增到節日清單中。根據問題判斷該節日是否存在於清單中，如果不存在，則為 true；否則為 false。\", \"reason\": \"描述為什麼需要或不需要新增節日，具體說明是否該節日已經存在於清單中，以及當前清單的內容。\"}}}} : {question3}')},
         config={"configurable": {"session_id": "abc123"}},
     )
-    
-    print(response1)
+
+    return json.dumps(response2.content, ensure_ascii=False)
 
 
 def generate_hw04(question):
@@ -181,5 +185,9 @@ def demo(question):
 
 
 if __name__ == '__main__':
-    result = generate_hw03("2024年台灣10月紀念日有哪些?", "蔣公誕辰紀念日是否在這個月份?")
+    # reuslt = generate_hw01("2024年台灣10月紀念日有哪些?")
+    # print(reuslt)
+    # result = generate_hw02("2024年台灣10月紀念日有哪些?")
+    # print(result)
+    result = generate_hw03("2024年台灣10月紀念日有哪些?", "根據先前的節日清單，這個節日{\"date\": \"10-31\", \"name\": \"蔣公誕辰紀念日\"}是否有在該月份清單?")
     print(result)
