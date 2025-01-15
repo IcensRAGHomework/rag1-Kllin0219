@@ -14,6 +14,9 @@ from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
+import base64
+from mimetypes import guess_type
+
 
 gpt_chat_version = 'gpt-4o'
 gpt_config = get_model_configuration(gpt_chat_version)
@@ -154,15 +157,61 @@ def generate_hw03(question2, question3):
     )
 
     response2 = llm_with_chat_history.invoke(
-        {"question": HumanMessage(f'"請回答以下問題並以 JSON 格式輸出，格式如下: {{\"Result\": {{\"add\": \"這是一個布林值，表示是否需要將節日新增到節日清單中。根據問題判斷該節日是否存在於清單中，如果不存在，則為 true；否則為 false。\", \"reason\": \"描述為什麼需要或不需要新增節日，具體說明是否該節日已經存在於清單中，以及當前清單的內容。\"}}}} : {question3}')},
+        {"question": HumanMessage(f'請回答以下問題並以 JSON 格式輸出，格式如下: {{\"Result\": {{\"add\": \"這是一個布林值，表示是否需要將節日新增到節日清單中。根據問題判斷該節日是否存在於清單中，如果不存在，則為 true；否則為 false。\", \"reason\": \"描述為什麼需要或不需要新增節日，具體說明是否該節日已經存在於清單中，以及當前清單的內容。\"}}}} : {question3}')},
         config={"configurable": {"session_id": "abc123"}},
     )
+    
+    parser = JsonOutputParser()
+    parsed_result = parser.parse(response2.content)
+    return json.dumps(parsed_result, ensure_ascii=False)
 
     return response2.content
 
+# Function to encode a local image into data URL 
+def local_image_to_data_url(image_path):
+    # Guess the MIME type of the image based on the file extension
+    mime_type, _ = guess_type(image_path)
+    if mime_type is None:
+        mime_type = 'application/octet-stream'  # Default MIME type if none is found
+
+    # Read and encode the image file
+    with open(image_path, "rb") as image_file:
+        base64_encoded_data = base64.b64encode(image_file.read()).decode('utf-8')
+
+    # Construct the data URL
+    return f"data:{mime_type};base64,{base64_encoded_data}"
 
 def generate_hw04(question):
-    pass
+    llm = AzureChatOpenAI(
+        model=gpt_config['model_name'],
+        deployment_name=gpt_config['deployment_name'],
+        openai_api_key=gpt_config['api_key'],
+        openai_api_version=gpt_config['api_version'],
+        azure_endpoint=gpt_config['api_base'],
+        temperature=gpt_config['temperature']
+    )
+    
+    image_path = 'baseball.png'
+    data_url = local_image_to_data_url(image_path)
+    messages=[
+        { "role": "system", "content": "You are a helpful assistant." },
+        { "role": "user", "content": [  
+            { 
+                "type": "text", 
+                "text": f'請回答以下問題並以 JSON 格式輸出，格式如下: {{\"Result\": {{\"score\": \"答案\"}}}} : {question}'
+            },
+            { 
+                "type": "image_url",
+                "image_url": {
+                    "url": data_url
+                }
+            }
+        ] } 
+    ]
+    response = llm.invoke(messages)
+    parser = JsonOutputParser()
+    parsed_result = parser.parse(response.content)
+    return json.dumps(parsed_result, ensure_ascii=False)
 
 
 def demo(question):
@@ -185,9 +234,11 @@ def demo(question):
 
 
 if __name__ == '__main__':
-    # reuslt = generate_hw01("2024年台灣10月紀念日有哪些?")
-    # print(reuslt)
-    # result = generate_hw02("2024年台灣10月紀念日有哪些?")
-    # print(result)
+    reuslt = generate_hw01("2024年台灣10月紀念日有哪些?")
+    print(reuslt)
+    result = generate_hw02("2024年台灣10月紀念日有哪些?")
+    print(result)
     result = generate_hw03("2024年台灣10月紀念日有哪些?", "根據先前的節日清單，這個節日{\"date\": \"10-31\", \"name\": \"蔣公誕辰紀念日\"}是否有在該月份清單?")
+    print(result)
+    result = generate_hw04("請問中華台北的積分是多少")
     print(result)
